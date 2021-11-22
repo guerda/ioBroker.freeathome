@@ -1,6 +1,7 @@
 'use strict';
 
 const utils = require('@iobroker/adapter-core');
+const { throws } = require('assert');
 const FreeAtHomeApi = require('./lib/freeathome');
 
 class Freeathome extends utils.Adapter {
@@ -10,6 +11,7 @@ class Freeathome extends utils.Adapter {
             name: 'freeathome',
         });
         this._registered = false;
+        this._connected = false;
         this.on('ready', this.onReady.bind(this));
         this.on('stateChange', this.onStateChange.bind(this));
         this.on('unload', this.onUnload.bind(this));
@@ -18,12 +20,15 @@ class Freeathome extends utils.Adapter {
     async onReady() {
         this._api = new FreeAtHomeApi(this);
         await this._api.start();
+        this._connected = true;
 
         this.subscribeStates('*');
+        this._interval = setInterval(function() {registerAllDevices()} ,8000);
     }
 
     onUnload(callback) {
         try {
+            clearInterval(this._interval);
             this._api.stop();
             callback();
         } catch (e) {
@@ -32,7 +37,7 @@ class Freeathome extends utils.Adapter {
     }
 
     async registerAllDevices() {
-        if (!this._registered) {
+        if (this._connected && !this._registered) {
             const devices = await this._api.getAllDevices();
 
             if (Object.keys(devices).length > 0) {
